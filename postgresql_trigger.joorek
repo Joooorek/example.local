@@ -1,0 +1,32 @@
+DECLARE
+	categories_count integer;
+	category_I integer := 1;
+	order_count integer;
+	final_stats integer[];
+  stats_exist integer;
+	stats_final text;
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+		  SELECT COUNT(id) INTO categories_count FROM categories;
+		
+		  WHILE category_I <= categories_count LOOP
+			  SELECT COUNT(orders.id) INTO order_count FROM orders WHERE category_id = category_I AND buy_time = NOW()::date;
+			  final_stats := array_append(final_stats,category_I);
+			  final_stats := array_append(final_stats,order_count);
+
+			  category_I = category_I + 1;
+  	  END LOOP;
+	
+		  SELECT COUNT(stats.id) INTO stats_exist FROM stats WHERE date = NOW()::date;
+
+		  stats_final := json_build_array(final_stats);
+		
+		  IF stats_exist > 0 THEN
+			  UPDATE stats SET value = stats_final WHERE date = NOW()::date;
+		  ELSIF stats_exist = 0 THEN
+			  INSERT INTO stats(value,date) values (stats_final,NOW()::date);
+		  END IF;
+
+      RETURN NEW;
+    END IF;
+END;
